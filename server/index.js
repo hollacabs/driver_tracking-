@@ -1,87 +1,66 @@
+let async = require('async');
 let Koa = require('koa');
-let redis = require('redis');
-let moment = require('moment');
 let bodyParser = require('koa-bodyparser');
 let Router = require('koa-router');
 let db = require('../data/datageneration.js');
 let fs = require('fs');
-let client = redis.createClient();
-// let koaBody = require('koa-body');
-//App set up
+let cassQuery = require('../data/cassQuery.js');
+
 let app = new Koa();
 let router = new Router(); 
+
 
 router.use(bodyParser());
 app.use(router.routes())
 
-router.post('/driver', (ctx) => {
-  let driver = ctx.request.body
-  driverInsert(driver);
-}); 
-
-router.patch('/driver', (ctx) => {
- 
-}) 
-
 let port = 3000;
 
 app.listen(port, () => { 
-
-  // console.log(db.generateRandomDrivers(db.coordinates, 5)
-
-  var initialDrivers = db.generateRandomDrivers(db.coordinates, 1);
-  bulkInsert(initialDrivers);
-
-  console.log("Koa is listening on port " + port);
+	// driverCount(0,10);
+	console.log("Koa is listening on port 3000");
 });
 
-// client.on('connect', () => {
-// 	console.log('connected to koa');
-// })
-let driverInsert = (driver) =>{
+router.post('/driver', (ctx) => {
+	let driver = ctx.request.body
+	cassQuery.addDriver(driver);
+})
 
-  // client.hgetall(driver.city, (err, results) => {
+router.delete('/driver/', (ctx) => {
+	let driver = ctx.request.body
+	cassQuery.removeDriver(driver);
+})
 
-    // counter = parseInt(results.count)
-    // counter += 1;
-    // console.log('counter',counter);
-  // });
-  client.get(driver.city, (err, results) => {
-    if(results === null){
-      results = 1;
-      client.set(driver.city, results, (err, results) =>{
-        console.log(results);
-      })
-    } else {
-      client.incr(driver.city, (err, results) => {
-        console.log(results);
-      })
-    }
-  })
-  // client.set(driver.city, 0, (err, reply) => {
-  //   client.incr(driver.city, function(err, reply) {
-  //     if(err){
-  //      console.log(err);
-  //     } else {
-  //      console.log(reply);
-  //     }
-  //   });
-  // }); 
+// let driverMatchByCity = (city) => {
+// 	let startTime = new Date();
+// 	let query = "SELECT * from driverdetails WHERE city= ?";
+// 	let params = [city];
+// 	client.execute(query, params) 
+//   	.then(function(result){
+//   		console.log(result.rows[0]); 
+//   	})
+// }; 
 
-  client.geoadd("locations", driver.currentLocation[1], driver.currentLocation[0], "driverID:"+driver.driverId, (err, reply) => {
-  	if(err){
-  		console.log(err);
-  	} else {
-  		console.log(reply);
-  	}
-  }); 
-}
+// let driverCount = (start,end) => {
+// 	let cities = Object.keys(db.coordinates);
+// 	for (var i=start; i< end; i++){
+// 			let closureCity = cities[i];
+// 			let query = 'SELECT COUNT(*) from driverdetails WHERE city=?';
+// 			client.execute(query, [closureCity], {prepare:true})
+// 			.then(result => {
+// 				insertCount(closureCity, result)
+// 			}).catch(err => {
+// 				console.log('drivercount error',err);
+// 			})
+// 	}
+// }
 
-let bulkInsert = (drivers) => {
-	drivers.forEach((driver) =>{
-		console.log('driver',driver);
-		driverInsert(driver)
-	})
-}
-
-
+// let insertCount = (city,result) => {
+// 	let cityCount = result.rows[0].count; 
+// 	let insertQuery = 'INSERT INTO driverCount (city, count) VALUES (?, ?)';
+// 		client.execute(insertQuery, [city, cityCount], {prepare:true})
+// 		.then(result => {
+// 			console.log('inserted', city+':'+cityCount);
+// 		}).catch(err => {
+// 			console.log('insertcount error',err);
+// 		})
+// }

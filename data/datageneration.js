@@ -1,4 +1,5 @@
 // let client = redis.createClient();
+let fs = require('fs');
 
 let coordinates = {
   sanFrancisco: {
@@ -128,40 +129,100 @@ let randomCoordinates = (city) => {
   return [city.latitude[0] - Math.random() * (city.latitude[0] - city.latitude[1]), city.longitude[0] - Math.random() * (city.longitude[0] - city.longitude[1])]
 }
 
-let generateRandomDrivers = (numberOfDrivers) => {
+//string format for cassandra; 
+let generateRandomDrivers = (start,end) => {
   let cityArray = Object.keys(coordinates);
-  let result = [];
-  for (var i = 0; i < numberOfDrivers; i++) {
+  let result = '';
+  for (var i = start; i < end; i++) {
     let city = cityArray[Math.floor(Math.random() * cityArray.length)]
     let coord = randomCoordinates(coordinates[city]);
-    result.push({
-      driverId: i,
-      city: city,
-      currentLocation: [coord[0], coord[1]]
+    result += [city,i,coord[0],coord[1]].join(',')+'\n';
+      // city: city,
+      // currentLocation: [coord[0], coord[1]]
       // availability: new Date()
-    })
-  }
+    }
   return result; 
 }
 
-let randomTimeBetween = (start, end, daysAgo) => {
-  return moment(faker.date.between(moment().startOf('day').subtract(daysAgo, 'days').add(start, 'hour'), moment().startOf('day').subtract(daysAgo, 'days').add(end, 'hour'))).format();
+let initialDrivers = generateRandomDrivers(0,1000000);
+
+let generateCount = (drivers) => {
+  let result = '';
+  let count = drivers.split('\n').reduce((totalDrivers,driver) => {
+    let city = driver.split(',')[0];
+    if(totalDrivers[city]){
+      totalDrivers[city]+=1;
+    } else {
+      totalDrivers[city]=1;
+    }
+    return totalDrivers;
+  },{});
+
+  for(var city in count){
+    if(city !== ''){
+      result+=[city,count[city]]+'\n';
+    }
+  }
+
+  return result;
 }
 
-let driverInsert = (driver) =>{
+let generateRandomDriversMongoDB = (start,end) => {
+  let cityArray = Object.keys(coordinates);
+  let result = [];
+  for (var i = start; i < end; i++) {
+    let city = cityArray[Math.floor(Math.random() * cityArray.length)]
+    let coord = randomCoordinates(coordinates[city]);
+    result.push({
+      driverId : i,
+      city: city,
+      currentLocation: {type: "Point", 
+                        coordinates: [coord[1], coord[0]]
+                        }
+    });
+  }
+  return JSON.stringify(result); 
+}
 
-  client.get(driver.city, (err, results) => {
-    if(results === null){
-      results = 1;
-      client.set(driver.city, results, (err, results) =>{
-        console.log(results);
-      })
-    } else {
-      client.incr(driver.city, (err, results) => {
-        console.log(results);
-      })
-    }
+// let mongoData = generateRandomDriversMongoDB(6666667,10000000);
+
+let writeToText = (drivers, txtFile) => {
+  let writeStream = fs.createWriteStream(txtFile);
+// initialDrivers.forEach((driver) => {
+  writeStream.write(drivers, 'utf8');
+// })
+  writeStream.on('finish', () => {
+    console.log('finish');
   })
+  writeStream.end()
+};
+
+
+// writeToText(mongoData, 'data3.json')
+// writeToText(cityCount, 'dataCount.txt');
+// writeToText(initialDrivers, 'dataDetails3.txt');
+
+//copy driverdetails from 'dataDetails.txt' with delimiter=',';
+
+module.exports.generateRandomDrivers = generateRandomDrivers;
+module.exports.coordinates = coordinates;
+
+
+//----------------------REDIS INFO --------------------
+// let driverInsert = (driver) =>{
+
+//   client.get(driver.city, (err, results) => {
+//     if(results === null){
+//       results = 1;
+//       client.set(driver.city, results, (err, results) =>{
+//         console.log(results);
+//       })
+//     } else {
+//       client.incr(driver.city, (err, results) => {
+//         console.log(results);
+//       })
+//     }
+//   })
   // client.set(driver.city, 0, (err, reply) => {
   //   client.incr(driver.city, function(err, reply) {
   //     if(err){
@@ -172,24 +233,23 @@ let driverInsert = (driver) =>{
   //   });
   // }); 
 
-  client.geoadd("locations", driver.currentLocation[1], driver.currentLocation[0], "driverID:"+driver.driverId, (err, reply) => {
-    if(err){
-      console.log(err);
-    } else {
-      console.log(reply);
-    }
-  }); 
-}
+//   client.geoadd("locations", driver.currentLocation[1], driver.currentLocation[0], "driverID:"+driver.driverId, (err, reply) => {
+//     if(err){
+//       console.log(err);
+//     } else {
+//       console.log(reply);
+//     }
+//   }); 
+// }
+// let randomTimeBetween = (start, end, daysAgo) => {
+//   return moment(faker.date.between(moment().startOf('day').subtract(daysAgo, 'days').add(start, 'hour'), moment().startOf('day').subtract(daysAgo, 'days').add(end, 'hour'))).format();
+// }
 
-let bulkInsert = (drivers) => {
-  drivers.forEach((driver) =>{
-    console.log('driver',driver);
-    driverInsert(driver)
-  })
-}
-
-console.log(generateRandomDrivers(10))
-module.exports.generateRandomDrivers = generateRandomDrivers;
-module.exports.coordinates = coordinates;
+// let bulkInsert = (drivers) => {
+//   drivers.forEach((driver) =>{
+//     console.log('driver',driver);
+//     driverInsert(driver)
+//   })
+// }
 
 
